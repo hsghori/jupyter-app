@@ -1,0 +1,78 @@
+version: "3.5"
+services:
+  database:
+    container_name: postgres
+    image: postgres:latest
+    env_file: ./.secrets.env
+    ports:
+      - 5432:5432
+    volumes:
+      - db_volume:/var/lib/postgresql
+  server:
+    container_name: server
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    entrypoint: python3 -m flask run --host 0.0.0.0
+    env_file: ./.secrets.env
+    ports:
+      - 5000:5000
+    restart: always
+    volumes:
+      - ./app:/app
+    depends_on:
+      - database
+  client:
+    container_name: client
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    entrypoint: npm start
+    ports:
+      - 3000:3000
+    restart: always
+    volumes:
+      - ./client:/app
+    depends_on:
+      - server
+  nginx:
+    container_name: proxy
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+      - client
+  jupyterhub:
+    container_name: jupyterhub
+    build:
+      context: ./jupyterhub
+      dockerfile: Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./jupyterhub/jupyterhub_config.py:/srv/jupyterhub/jupyterhub_config.py
+      - ./jupyterhub/jupyter_notebook_config.py:/etc/jupyter/jupyter_notebook_config.py
+      - ./jupyterhub/custom.js/:/etc/jupyter/custom.js
+      - jupyterhub_data:/srv/jupyterhub
+    env_file: ./.secrets.env
+    environment:
+      DOCKER_JUPYTER_IMAGE: hsghori/test-jupyter:0.01-test
+      DOCKER_NETWORK_NAME: ${COMPOSE_PROJECT_NAME}_default
+      HUB_IP: jupyterhub
+    ports:
+      - "8000:8000"
+    depends_on:
+      - server
+      - client
+  jupyterlab:
+    image: hsghori/test-jupyter:0.01-test
+    command: echo
+    depends_on:
+      - jupyterhub
+
+volumes:
+  db_volume:
+  jupyterhub_data:

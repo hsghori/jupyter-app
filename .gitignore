@@ -1,0 +1,5 @@
+.vscode
+.secrets.env
+.env
+**/*.pyc
+**/node_modules
