@@ -127,7 +127,6 @@ function SidepanelItem(props: {
             props.item.type === FileSystemType.FILE &&
             props.item.id !== selectedFile?.id
           ) {
-            console.log(selectedFile, props.item);
             setSelectedFile(props.item);
           } else if (!empty) {
             setExpanded(!expanded);

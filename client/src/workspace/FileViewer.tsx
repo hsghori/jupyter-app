@@ -13,15 +13,40 @@ const useStyles = makeStyles({
   },
 });
 
+function useEvent(handler: (event: MessageEvent) => void, passive = false) {
+  useEffect(() => {
+    window.addEventListener("message", handler, passive);
+
+    return function cleanup() {
+      window.removeEventListener("message", handler);
+    };
+  });
+}
+
 export default function FileViewer(): JSX.Element {
   const { selectedFile } = useSelectedFileContext();
   const [jupyterUrl, setJupyterUrl] = useState<string | null>(null);
   const classes = useStyles();
 
+  useEvent((event: MessageEvent) => {
+    if (event.origin === "http://localhost:8000") {
+      if (event.data === "SAVED") {
+        if (selectedFile == null) {
+          console.log("saving null file somehow");
+          return;
+        }
+        axios.post(`/api/file/${selectedFile.id}:save`).then(() => {
+          console.log("saved file");
+        });
+      }
+    }
+  });
+
   useEffect(() => {
     if (selectedFile == null) {
       return;
     }
+    setJupyterUrl(null);
     axios.get(`/api/file/${selectedFile.id}`).then((response) => {
       setJupyterUrl(response.data.notebookUrl);
     });

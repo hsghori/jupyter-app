@@ -21,7 +21,10 @@ export default function Workspace(): JSX.Element {
       <fileContext.Provider
         value={{
           selectedFile,
-          setSelectedFile,
+          setSelectedFile: (newFile) => {
+            console.log(newFile);
+            setSelectedFile(newFile);
+          },
         }}
       >
         <>

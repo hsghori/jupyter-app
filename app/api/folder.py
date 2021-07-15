@@ -12,6 +12,7 @@ camel_case_pattern = re.compile(r"(?<!^)(?=[A-Z])")
 
 
 @api_blueprint.route("/folder", methods=["POST"])
+@login_required
 def create_folder():
     name = request.json["name"]
     folder_id = request.json["parentFolderId"]
@@ -23,7 +24,7 @@ def create_folder():
     folder = Folder(name, parent_folder=parent_folder)
     try:
         jupyterhub_client = JupyterHubClient()
-        jupyterhub_client.create_folder()
+        jupyterhub_client.create_folder(current_user, folder)
     except JupyterException as e:
         return {"error": str(e)}, 400
 
@@ -34,6 +35,7 @@ def create_folder():
 
 
 @api_blueprint.route("/file", methods=["POST"])
+@login_required
 def create_file():
     name = request.json["name"]
     folder_id = request.json["parentFolderId"]
@@ -50,6 +52,7 @@ def create_file():
 
 
 @api_blueprint.route("/folder/<folder_id>", methods=["GET"])
+@login_required
 def get_folder(folder_id):
     folder = Folder.query.get(folder_id)
     if folder is None:
@@ -59,6 +62,7 @@ def get_folder(folder_id):
 
 
 @api_blueprint.route("/contents/<folder_id>", methods=["GET"])
+@login_required
 def get_contents(folder_id):
     folder = Folder.query.get(folder_id)
 
@@ -80,7 +84,7 @@ def open_file(file_id):
     return {"id": file.id, "name": file.name, "notebookUrl": notebook_url}
 
 
-@api_blueprint.route("/file/<file_id>", methods=["POST"])
+@api_blueprint.route("/file/<file_id>:save", methods=["POST"])
 @login_required
 def save_file(file_id):
     file = File.query.get(file_id)
@@ -92,4 +96,7 @@ def save_file(file_id):
         notebook_url = jupyterhub_client.save_notebook(current_user, file)
     except JupyterException as e:
         return {"error": str(e)}, 400
+
+    db.session.add(file)
+    db.session.commit()
     return {"id": file.id, "name": file.name, "notebookUrl": notebook_url}

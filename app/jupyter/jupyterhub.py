@@ -1,3 +1,4 @@
+import uuid
 from time import sleep
 
 import requests
@@ -11,6 +12,23 @@ class JupyterException(Exception):
     pass
 
 
+BASE_CONTENTS = {
+    "cells": [
+        {
+            "cell_type": "code",
+            "execution_count": 0,
+            "id": str(uuid.uuid4().hex[:8]),
+            "metadata": {"trusted": False},
+            "outputs": [],
+            "source": "",
+        }
+    ],
+    "metadata": {},
+    "nbformat": 4,
+    "nbformat_minor": 5,
+}
+
+
 class JupyterHubClient:
     URL = "http://jupyterhub:8000/hub/api"
     NOTEBOOK_URL = "http://jupyterhub:8000/"
@@ -20,6 +38,24 @@ class JupyterHubClient:
             "Authorization": f"Token {JUPYTERHUB_SECRET}",
             "Content-Type": "application/json",
         }
+
+    def _get_default_contents(self, user):
+        rv = requests.get(
+            f"{self.NOTEBOOK_URL}/user/{user.username}/api/kernelspecs/",
+            headers=self._get_notebook_server_header(user),
+        )
+        if rv.status_code >= 300:
+            raise JupyterException(rv.json())
+
+        contents = BASE_CONTENTS.copy()
+        default = rv.json()["default"]
+        kernel_spec = rv.json()["kernelspecs"][default]
+        contents["metadata"]["kernelspec"] = {
+            "display_name": kernel_spec["spec"]["display_name"],
+            "name": kernel_spec["name"],
+            "language": kernel_spec["spec"]["language"],
+        }
+        return contents
 
     def _get_notebook_server_header(self, user):
         return {
@@ -87,7 +123,7 @@ class JupyterHubClient:
     def create_folder(self, user: User, folder: Folder):
         rv = requests.put(
             f"{self.NOTEBOOK_URL}/user/{user.username}/api/contents/{folder.get_path()}",
-            data={
+            json={
                 "name": folder.name,
                 "path": folder.get_path(),
                 "type": "directory",
@@ -113,7 +149,7 @@ class JupyterHubClient:
         if notebook is None:
             raise JupyterException({"error": "Cannot save a notebook that doesn't exist"})
 
-        file.contents = notebook["contents"]
+        file.contents = notebook["content"]
 
     def get_notebook(self, user: User, file: File):
         notebook = self.get_noteboo(user, file)
@@ -123,7 +159,9 @@ class JupyterHubClient:
             "type": "notebook",
         }
         if notebook is not None:
-            request_args.update({"content": file.contents, "format": "json"})
+            request_args.update(
+                {"content": file.contents or self._get_default_contents(user), "format": "json"}
+            )
         rv = requests.put(
             f"{self.NOTEBOOK_URL}/user/{user.username}/api/contents/{file.get_path()}",
             json=request_args,
