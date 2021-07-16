@@ -91,6 +91,11 @@ class JupyterHubClient:
         while counter < 100:
             rv = requests.post(
                 f"{self.URL}/users/{user.username}/server",
+                json={
+                    "env": {
+                        "USER": user.id
+                    }
+                },
                 headers=self._get_notebook_server_header(user),
             )
             if rv.status_code == 201:

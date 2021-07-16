@@ -1,7 +1,18 @@
 import os
 
+from dockerspawner import DockerSpawner
+
+
+class EnvDockerSpawner(DockerSpawner):
+    def get_env(self):
+        env = super().get_env()
+        user_options_env = self.user_options.get("env", {})
+        env.update(user_options_env)
+        return env
+
+
 c.LocalAuthenticator.create_system_users = True
-c.JupyterHub.spawner_class = "dockerspawner.DockerSpawner"
+c.JupyterHub.spawner_class = EnvDockerSpawner
 c.DockerSpawner.image = os.environ["DOCKER_JUPYTER_IMAGE"]
 c.DockerSpawner.network_name = os.environ["DOCKER_NETWORK_NAME"]
 c.DockerSpawner.debug = True
